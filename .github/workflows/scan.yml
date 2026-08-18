@@ -1,0 +1,114 @@
+name: AccuKnox Container Scan
+description: Scan Docker images using AccuKnox and push the results to the CSPM panel.
+
+inputs:
+  endpoint:
+    description: "The URL of the CSPM panel to push the scan results to."
+    required: true
+    default: "cspm.demo.accuknox.com"
+  token:
+    description: "The token for authenticating with the CSPM panel."
+    required: true
+  tenant_id:
+    description: "The ID of the tenant associated with the CSPM panel."
+    required: true
+  repository_name:
+    description: "Docker image repository name"
+    required: true
+  tag:
+    description: "Add version tag to the repository"
+    required: true
+    default: "${{ github.run_id }}"
+  severity:
+    description: "Allows selection of severity level for the scan. Options include UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL. If specified, the scan will target vulnerabilities of the selected severity level."
+    required: false
+    default: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+  exit_code:
+    description: "Values '0' and '1' are accepted. '0' is the default value, which indicates that the pipeline will not be halted if the specified severity is found, while '1' indicates that the pipeline will stop if a specified severity level is detected."
+    required: false
+    default: "0"
+  ignore_unfixed:
+    description: "Ignore vulnerabilities for which a fix isn't available yet."
+    required: false
+    default: false
+  label:
+    description: "The label created in AccuKnox SaaS for associating scan results."
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # - name: Validate Inputs
+    #   run: |
+    #     curl -o validate_inputs.py https://raw.githubusercontent.com/accuknox/container-scan-action/main/validate_inputs.py
+    #     python validate_inputs.py
+    #   shell: bash
+    #   env:
+    #     ENDPOINT: ${{ inputs.endpoint }}
+    #     TOKEN: ${{ inputs.token }}
+    #     TENANT_ID: ${{ inputs.tenant_id }}
+    #     REPOSITORY_NAME: ${{ inputs.repository_name }}
+    #     TAG: ${{ inputs.tag }}
+    #     SEVERITY: ${{ inputs.severity }}
+    #     CODE: ${{ inputs.exit_code }}
+    #     IGNORE_UNFIXED: ${{ inputs.ignore_unfixed }}
+
+    - name: Download Vulnerability Scanner
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        curl -sfL $url | sh -s -- -b $GITHUB_WORKSPACE/bin > /dev/null
+        echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+      env:
+        url: https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh
+      shell: bash
+
+    - name: Run AccuKnox Vulnerability Scanner
+      run: |
+        $Scan image \
+          --severity ${{ inputs.severity }} \
+          -f json ${{ inputs.repository_name }}:${{ inputs.tag }} \
+          -o results.json \
+          --quiet \
+          --skip-dirs /usr/local/bin,/usr/bin,/usr/local/lib/node_modules
+      env:
+        Scan: trivy
+      shell: bash
+
+    - name: Print AccuKnox Results
+      run: cat results.json
+      shell: bash
+
+    - name: Push report to CSPM panel
+      run: |
+        response=$(curl --location --request POST 'https://${{ inputs.endpoint }}/api/v1/artifact/?tenant_id=${{ inputs.tenant_id }}&data_type=TR&label_id=${{ inputs.label }}&save_to_s3=true' \
+          --header 'Tenant-Id: ${{ inputs.tenant_id }}' \
+          --header 'Authorization: Bearer ${{ inputs.token }}' \
+        --form 'file=@"./results.json"')
+
+        echo "Response: $response"
+        if [[ "$response" != *"File received successfully"* ]]; then
+          echo "Error: Failed to push report to CSPM panel"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Run AccuKnox Vulnerability Scanner with provided exit code
+      run: |
+        args=""
+        if [[ "${{ inputs.ignore_unfixed }}" == "true" ]]; then
+          args="--ignore-unfixed"
+        fi
+        $Scan image \
+          --exit-code ${{ inputs.exit_code }} \
+          --severity ${{ inputs.severity }} \
+          ${{ inputs.repository_name }}:${{ inputs.tag }} \
+          --quiet \
+          --skip-dirs /usr/local/bin,/usr/bin,/usr/local/lib/node_modules \
+          "$args" >/dev/null
+      env:
+        Scan: trivy
+      shell: bash
+
+branding:
+  icon: "shield"
+  color: "green"
