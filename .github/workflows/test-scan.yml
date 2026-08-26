@@ -4,25 +4,18 @@ on:
     branches:
       - main
 
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_DEV_ACCESS_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_DEV_SECRET_ID }}
-  REPO: 956994857092.dkr.ecr.us-east-2.amazonaws.com
-  IMAGE_NAME: test
-
 jobs:
   docker-image-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v2
-      - name: Docker build and Trivy scan
-        uses: accuknox/common-gh-actions/actions/docker-scan@main
+        uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t test-image:latest src/
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
         with:
-          repo: ${{ env.REPO }}
-          image-name: ${{ env.IMAGE_NAME }}
-          tag: ${{ github.run_number }}
-          s3-bucket-name: accuknox-trivy-test
-          trivy-exit-code: 1
-          trivy-severity: HIGH,CRITICAL
-          docker-context: src/
+          image-ref: 'test-image:latest'
+          severity: 'HIGH,CRITICAL'
+          ignore-unfixed: true
+          exit-code: '1'
