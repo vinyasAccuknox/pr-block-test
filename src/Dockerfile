@@ -1,2 +1,2 @@
 FROM debian:9
-RUN echo "AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE" > /app/config.env
+RUN mkdir -p /app && echo "AWS_SECRET_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE" > /app/config.env
