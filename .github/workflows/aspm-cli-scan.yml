@@ -26,39 +26,24 @@ jobs:
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
-            --keep-results \
             container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
             --container-mode
 
-      - name: Print fix-available results count
-        continue-on-error: true
-        run: |
-          cp results.json results-with-fix.json
-          echo "Vuln count (fix-available scan):"
-          grep -o '"VulnerabilityID"' results-with-fix.json | wc -l
-
-      - name: Check for unfixed vulns in results
-        continue-on-error: true
-        run: |
-          echo "Vulns WITHOUT a FixedVersion (should be excluded by --ignore-unfixed):"
-          grep -B5 '"FixedVersion":""' results-with-fix.json | grep -c VulnerabilityID || echo 0
-
-      - name: Vuln scan - no fix available (should pass)
+      - name: Vuln scan with Trivy secret scanner (should detect secret)
         continue-on-error: true
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
             --keep-results \
             container \
-            --command "image test-image:latest --severity HIGH,CRITICAL --ignore-unfixed" \
+            --command "image test-image:latest --severity HIGH,CRITICAL --scanners vuln,secret" \
             --container-mode
 
-      - name: Print no-fix results count
+      - name: Check for secret findings in Trivy scan
         run: |
-          cp results.json results-no-fix.json
-          echo "Vuln count (ignore-unfixed scan):"
-          grep -o '"VulnerabilityID"' results-no-fix.json | wc -l
+          echo "Checking results.json for secret findings:"
+          grep -i '"Class":"secret"' results.json | wc -l
 
   aspm-secret-scan:
     runs-on: ubuntu-latest
