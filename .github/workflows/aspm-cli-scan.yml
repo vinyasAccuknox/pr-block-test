@@ -23,7 +23,8 @@ jobs:
 
       - name: Vuln scan - fix available (should block)
         run: |
-          ./accuknox-aspm-scanner scan container \
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
-            --container-mode \
-            --skip-upload
+            --container-mode
