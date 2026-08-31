@@ -26,30 +26,22 @@ jobs:
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
+            --keep-results \
             container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
             --container-mode
 
-      - name: Vuln scan with Trivy secret scanner (should detect secret)
-        continue-on-error: true
+      - name: Print vulnerability details
         run: |
-          ./accuknox-aspm-scanner scan \
-            --skip-upload \
-            --keep-results \
-            container \
-            --command "image test-image:latest --severity HIGH,CRITICAL --scanners vuln,secret" \
-            --container-mode
-
-      - name: Check for secret findings in Trivy scan
-        run: |
-          echo "File size and first look:"
-          wc -l results.json
-          echo "---"
-          echo "Searching for secret-related content in results.json:"
-          grep -i "secret" results.json | head -20
-          echo "---"
-          echo "Class field occurrences:"
-          grep -o '"Class": *"[^"]*"' results.json | sort | uniq -c
+          echo "=== Vulnerability Details ==="
+          python3 -c "
+          import json
+          with open('results.json') as f:
+              data = json.load(f)
+          for result in data.get('Results', []):
+              for vuln in result.get('Vulnerabilities', []):
+                  print(f\"{vuln.get('VulnerabilityID')} | {vuln.get('Severity')} | {vuln.get('PkgName')} | Fixed: {vuln.get('FixedVersion', 'N/A')}\")
+          "
 
   aspm-secret-scan:
     runs-on: ubuntu-latest
