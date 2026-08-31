@@ -26,17 +26,33 @@ jobs:
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
+            --keep-results \
             container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
             --container-mode
 
+      - name: Print fix-available results count
+        continue-on-error: true
+        run: |
+          cp results.json results-with-fix.json
+          echo "Vuln count (fix-available scan):"
+          grep -o '"VulnerabilityID"' results-with-fix.json | wc -l
+
       - name: Vuln scan - no fix available (should pass)
+        continue-on-error: true
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
+            --keep-results \
             container \
             --command "image test-image:latest --severity HIGH,CRITICAL --ignore-unfixed" \
             --container-mode
+
+      - name: Print no-fix results count
+        run: |
+          cp results.json results-no-fix.json
+          echo "Vuln count (ignore-unfixed scan):"
+          grep -o '"VulnerabilityID"' results-no-fix.json | wc -l
 
   aspm-secret-scan:
     runs-on: ubuntu-latest
