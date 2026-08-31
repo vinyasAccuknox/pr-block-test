@@ -38,6 +38,12 @@ jobs:
           echo "Vuln count (fix-available scan):"
           grep -o '"VulnerabilityID"' results-with-fix.json | wc -l
 
+      - name: Check for unfixed vulns in results
+        continue-on-error: true
+        run: |
+          echo "Vulns WITHOUT a FixedVersion (should be excluded by --ignore-unfixed):"
+          grep -B5 '"FixedVersion":""' results-with-fix.json | grep -c VulnerabilityID || echo 0
+
       - name: Vuln scan - no fix available (should pass)
         continue-on-error: true
         run: |
