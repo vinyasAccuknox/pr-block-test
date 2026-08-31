@@ -1,0 +1,28 @@
+name: ASPM CLI Test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  aspm-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Docker Build
+        run: docker build -t test-image:latest -f Dockerfile .
+
+      - name: Download AccuKnox ASPM Scanner
+        run: |
+          curl -L https://github.com/accuknox/aspm-scanner-cli/releases/download/v0.14.8/accuknox-aspm-scanner -o accuknox-aspm-scanner
+          chmod +x accuknox-aspm-scanner
+          ./accuknox-aspm-scanner tool install --type container
+
+      - name: Vuln scan - fix available (should block)
+        run: |
+          ./accuknox-aspm-scanner scan container \
+            --command "image test-image:latest --severity HIGH,CRITICAL" \
+            --container-mode
