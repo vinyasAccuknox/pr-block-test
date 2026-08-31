@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  aspm-scan:
+  aspm-vuln-scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -22,9 +22,38 @@ jobs:
           ./accuknox-aspm-scanner tool install --type container
 
       - name: Vuln scan - fix available (should block)
+        continue-on-error: true
         run: |
           ./accuknox-aspm-scanner scan \
             --skip-upload \
             container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
+            --container-mode
+
+      - name: Vuln scan - no fix available (should pass)
+        run: |
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            container \
+            --command "image test-image:latest --severity HIGH,CRITICAL --ignore-unfixed" \
+            --container-mode
+
+  aspm-secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download AccuKnox ASPM Scanner
+        run: |
+          curl -L https://github.com/accuknox/aspm-scanner-cli/releases/download/v0.14.8/accuknox-aspm-scanner -o accuknox-aspm-scanner
+          chmod +x accuknox-aspm-scanner
+          ./accuknox-aspm-scanner tool install --type container
+
+      - name: Secret scan (should block)
+        run: |
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            secret \
+            --command "filesystem ." \
             --container-mode
