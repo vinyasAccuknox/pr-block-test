@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Build
-        run: docker build -t test-image:latest -f Dockerfile .
+        run: docker build -t test-image:latest -f src/Dockerfile src/
 
       - name: Download AccuKnox ASPM Scanner
         run: |
