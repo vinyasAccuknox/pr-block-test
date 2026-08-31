@@ -1,0 +1,86 @@
+name: ASPM CLI Test
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  aspm-vuln-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Docker Build
+        run: docker build -t test-image:latest -f src/Dockerfile src/
+
+      - name: Download AccuKnox ASPM Scanner
+        run: |
+          curl -L https://github.com/accuknox/aspm-scanner-cli/releases/download/v0.14.8/accuknox-aspm-scanner -o accuknox-aspm-scanner
+          chmod +x accuknox-aspm-scanner
+          ./accuknox-aspm-scanner tool install --type container
+
+      - name: Vuln scan - fix available (should block)
+        continue-on-error: true
+        run: |
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            --keep-results \
+            container \
+            --command "image test-image:latest --severity HIGH,CRITICAL" \
+            --container-mode
+
+      - name: Print vulnerability details
+        run: |
+          echo "=== Vulnerability Details ==="
+          python3 -c "
+          import json
+          with open('results.json') as f:
+              data = json.load(f)
+          for result in data.get('Results', []):
+              for vuln in result.get('Vulnerabilities', []):
+                  print(f\"{vuln.get('VulnerabilityID')} | {vuln.get('Severity')} | {vuln.get('PkgName')} | Fixed: {vuln.get('FixedVersion', 'N/A')}\")
+          "
+
+      - name: Vuln scan with Trivy secret scanner (should detect secret)
+        continue-on-error: true
+        run: |
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            --keep-results \
+            container \
+            --command "image test-image:latest --severity HIGH,CRITICAL --scanners vuln,secret" \
+            --container-mode
+
+      - name: Print Trivy secret scan details
+        run: |
+          echo "=== Secret Findings (Trivy) ==="
+          python3 -c "
+          import json
+          with open('results.json') as f:
+              data = json.load(f)
+          for result in data.get('Results', []):
+              for secret in result.get('Secrets', []):
+                  print(f\"Rule: {secret.get('RuleID')} | Category: {secret.get('Category')} | Severity: {secret.get('Severity')} | Title: {secret.get('Title')}\")
+          "
+
+  aspm-secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download AccuKnox ASPM Scanner
+        run: |
+          curl -L https://github.com/accuknox/aspm-scanner-cli/releases/download/v0.14.8/accuknox-aspm-scanner -o accuknox-aspm-scanner
+          chmod +x accuknox-aspm-scanner
+          ./accuknox-aspm-scanner tool install --type container
+
+      - name: Secret scan (should block)
+        run: |
+          ./accuknox-aspm-scanner scan \
+            --skip-upload \
+            secret \
+            --command "filesystem ." \
+            --container-mode
