@@ -25,4 +25,5 @@ jobs:
         run: |
           ./accuknox-aspm-scanner scan container \
             --command "image test-image:latest --severity HIGH,CRITICAL" \
-            --container-mode
+            --container-mode \
+            --skip-upload
