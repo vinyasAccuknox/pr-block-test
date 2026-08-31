@@ -42,8 +42,14 @@ jobs:
 
       - name: Check for secret findings in Trivy scan
         run: |
-          echo "Checking results.json for secret findings:"
-          grep -i '"Class":"secret"' results.json | wc -l
+          echo "File size and first look:"
+          wc -l results.json
+          echo "---"
+          echo "Searching for secret-related content in results.json:"
+          grep -i "secret" results.json | head -20
+          echo "---"
+          echo "Class field occurrences:"
+          grep -o '"Class": *"[^"]*"' results.json | sort | uniq -c
 
   aspm-secret-scan:
     runs-on: ubuntu-latest
